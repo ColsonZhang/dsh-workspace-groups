@@ -1,0 +1,12 @@
+# dsh bundle patch: inserts this plugin into a profile's layer stack.
+#
+# `dsh plugin --profile <name> add <package>` reconciles `dsh.profile.bundles`
+# against installed packages and, seeing this declaration, appends the bundle so
+# the row below is merged at boot.
+#
+# The `!!js` guard keeps exactly one mount when another enabled loader entry
+# already mounts the same package under a different id.
+- insert:
+    - id: <plugin-id>
+      name: '<your-plugin-name>'
+      disabled: !!js "[...ctx.loader.entries()].some((e) => e.options.name === '<your-plugin-name>' && e.options.id !== '<plugin-id>' && !e.disabled)"

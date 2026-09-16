@@ -1,0 +1,35 @@
+name: check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax check the shipped bundles
+        run: |
+          node --check index.js
+          node --check client.js
+      - name: Validate package.json and the bundle patch
+        run: |
+          node -e "
+            const { readFileSync } = require('node:fs');
+            const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+            const fail = (message) => { console.error('FAIL: ' + message); process.exit(1); };
+            if (pkg.dsh?.bundle?.patch !== './cordis.patch.yml') fail('dsh.bundle.patch must point at ./cordis.patch.yml');
+            if (pkg.dsh?.client?.platform !== 'web') fail('dsh.client.platform must be web');
+            for (const file of ['index.js', 'client.js', 'cordis.patch.yml']) {
+              readFileSync(file, 'utf8');
+            }
+            const patch = readFileSync('cordis.patch.yml', 'utf8');
+            if (!patch.includes(\"name: 'dsh-workspace-groups'\")) fail('cordis.patch.yml must mount dsh-workspace-groups');
+            console.log('manifest ok');
+          "
+      - name: Verify the client bundle baseline
+        run: node scripts/verify-package.mjs

@@ -1,0 +1,7 @@
+# The plugin is shipped as source: `npm publish` must not re-encode line endings,
+# and the client bundle has to stay byte-identical to what was tested.
+* text=auto eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.md text eol=lf

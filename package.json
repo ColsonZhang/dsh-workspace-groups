@@ -1,0 +1,72 @@
+{
+  "name": "dsh-workspace-groups",
+  "version": "0.1.1",
+  "description": "Collapsible workspace groups for the DSH sidebar: fold related workspaces into named groups, drag workspaces between them, grouping stored in the browser.",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "workspace",
+    "sidebar",
+    "ui"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-sidebar"
+      ],
+      "platform": "web"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-client-ui-sidebar": "^0.1.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.1.2-rc.1"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-client-ui-sidebar": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-slots": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "check": "node --check index.js && node --check client.js",
+    "verify": "node scripts/verify-package.mjs",
+    "verify:mount": "node scripts/check-profile-mount.mjs --profile web",
+    "baseline": "node scripts/verify-package.mjs --write-baseline"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/REPLACE_WITH_OWNER/dsh-workspace-groups.git"
+  },
+  "bugs": {
+    "url": "https://github.com/REPLACE_WITH_OWNER/dsh-workspace-groups/issues"
+  },
+  "homepage": "https://github.com/REPLACE_WITH_OWNER/dsh-workspace-groups#readme"
+}

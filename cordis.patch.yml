@@ -1,0 +1,16 @@
+# dsh bundle patch: inserts this plugin into a profile's layer stack.
+#
+# `dsh plugin --profile <name> add dsh-workspace-groups` reconciles
+# `dsh.profile.bundles` against the installed packages and, seeing this
+# declaration, appends this bundle so the row below is merged at boot.
+#
+# The `!!js` guard backs this row off when another *enabled* loader entry
+# already mounts the same package under a different id (a hand-written mount
+# line, or an aggregate bundle that includes it). Two mounts would register the
+# same client module twice; the guard keeps exactly one. The loader evaluates
+# the expression when this row is processed, so it only sees rows before it —
+# which is the normal order, because `dsh plugin add` appends new bundles last.
+- insert:
+    - id: workspace-groups
+      name: 'dsh-workspace-groups'
+      disabled: !!js "[...ctx.loader.entries()].some((e) => e.options.name === 'dsh-workspace-groups' && e.options.id !== 'workspace-groups' && !e.disabled)"
