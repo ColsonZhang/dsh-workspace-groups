@@ -3,10 +3,10 @@
 # 提交到 https://github.com/awesome-dsh-plugin/awesome-dsh-plugin
 # （仓库名与文件名对齐，故文件名里没有 repo 段）。
 #
-# 提交前把 REPLACE_WITH_OWNER 换成你的 GitHub 用户名：
+# 提交前把 ColsonZhang 换成你的 GitHub 用户名：
 # `url` 必须与仓库地址完全一致，`name` 用 owner/repo 形式。
-url: https://github.com/REPLACE_WITH_OWNER/dsh-workspace-groups
-name: REPLACE_WITH_OWNER/dsh-workspace-groups
+url: https://github.com/ColsonZhang/dsh-workspace-groups
+name: ColsonZhang/dsh-workspace-groups
 category: ui
 description:
   en: Collapsible workspace groups in the DSH sidebar — group related workspaces behind foldable headers, move them by drag or menu, with the grouping kept in browser storage.

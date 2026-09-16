@@ -63,10 +63,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/REPLACE_WITH_OWNER/dsh-workspace-groups.git"
+    "url": "git+https://github.com/ColsonZhang/dsh-workspace-groups.git"
   },
   "bugs": {
-    "url": "https://github.com/REPLACE_WITH_OWNER/dsh-workspace-groups/issues"
+    "url": "https://github.com/ColsonZhang/dsh-workspace-groups/issues"
   },
-  "homepage": "https://github.com/REPLACE_WITH_OWNER/dsh-workspace-groups#readme"
+  "homepage": "https://github.com/ColsonZhang/dsh-workspace-groups#readme"
 }
