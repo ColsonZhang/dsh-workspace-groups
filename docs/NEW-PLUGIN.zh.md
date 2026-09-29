@@ -63,7 +63,7 @@ cd "C:\Users\ZhangShen\Documents\DSH\<new-plugin>"
 git init
 git add .
 git commit -m "feat: initial plugin"
-git remote add origin https://github.com/REPLACE_WITH_OWNER/<new-plugin>.git
+git remote add origin https://github.com/ColsonZhang/<new-plugin>.git
 git push -u origin main
 ```
 
@@ -72,7 +72,7 @@ git push -u origin main
 1. 给仓库加 GitHub topic `dsh-plugin`；
 2. 建仓满 1 天后再提 PR（CI 会自动检查仓库年龄）；
 3. 往 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
-   提一个 PR，只新增 `data/plugins/REPLACE_WITH_OWNER__<repo>.yml`，内容照
+   提一个 PR，只新增 `data/plugins/ColsonZhang__<repo>.yml`，内容照
    `docs/market-entry.yml` 的格式（`category` 自己选准，描述必须与代码相符）；
 4. 可选：`npm publish --access public`，装上后安装会更快、可校验完整性。
 

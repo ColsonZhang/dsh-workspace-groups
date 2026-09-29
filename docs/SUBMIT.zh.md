@@ -27,7 +27,7 @@
 data/plugins/<owner>__<repo>.yml
 ```
 
-内容直接用 `docs/market-entry.yml`，把 `REPLACE_WITH_OWNER` 换成你的 GitHub 用户名
+内容直接用 `docs/market-entry.yml`，把 `ColsonZhang` 换成你的 GitHub 用户名
 （仓库名与本包同名，所以文件名是 `<owner>__dsh-workspace-groups.yml`）。
 `url` 必须与仓库地址完全一致，`name` 用 `owner/repo` 形式，`category` 取 `ui`。
 
@@ -49,7 +49,7 @@ dsh plugin --profile web add dsh-workspace-groups
 仅 GitHub：
 
 ```sh
-dsh plugin --profile web add github:REPLACE_WITH_OWNER/dsh-workspace-groups
+dsh plugin --profile web add github:ColsonZhang/dsh-workspace-groups
 ```
 
 ## 4. 发布到 npm（可选但建议）
@@ -60,6 +60,6 @@ npm publish --access public
 
 发布前确认：
 
-- `package.json` 里的 `repository` / `bugs` / `homepage` 已把 `REPLACE_WITH_OWNER` 换成真实账号；
+- `package.json` 里的 `repository` / `bugs` / `homepage` 已把 `ColsonZhang` 换成真实账号；
 - `LICENSE` 里的 `<your name>` 已替换；
 - `version` 与本次改动相符（marketplace 的更新检测按 npm 版本或 GitHub HEAD 对比）。

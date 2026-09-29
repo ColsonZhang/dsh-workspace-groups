@@ -3,7 +3,26 @@
 本文件记录本插件（`dsh-workspace-groups`）的对外变更。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
-## [Unreleased]
+## [0.1.2] — 2026-09-29
+
+已在 DSH `0.1.7`（较新的 dsh-desktop）web profile 上验证；本版主题是"DSH 升级后不再失效"。
+
+### Added
+
+- 挂载后自检：4 秒内若找不到工作区列表，控制台打印明确警告（说明是 DSH 升级后官方
+  侧边栏 DOM 变化、需要更新选择器），并记录 `container-probe` 事件；不再静默失效。
+
+### Fixed
+
+- **DSH Desktop 升级后插件消失**：升级会重排桌面的插件目录并清掉失效的 bundle 登记，
+  导致 profile 里的联接悬空、`dsh.profile.bundles` 丢掉本插件。`scripts/link-dev.ps1`
+  现在以"联接能否解析出 package.json"为准自动重建，并补回 bundle 登记；
+  `scripts/check-profile-mount.mjs` 也把这两种情况列为错误。
+- `scripts/link-dev.ps1` / `scripts/install.ps1` 加 UTF-8 BOM：Windows PowerShell 5.1
+  在无 BOM 时按 ANSI 解码，会把脚本里的中文变成解析错误（`.gitattributes` 固定为
+  `UTF-8-BOM` + CRLF，保证每次 clone 都一致）。
+- 体检脚本不再硬编码 DSH 安装路径：自动在 `resources/app.asar.unpacked` 与
+  `resources/app` 之间探测安装根、node 与 yaml，并用无 BOM 读取 profile manifest。
 
 ## [0.1.1] — 2026-09-15
 

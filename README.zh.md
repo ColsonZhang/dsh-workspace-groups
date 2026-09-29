@@ -82,7 +82,10 @@ window.__dshWgOn()          // 重新启用
 - 侧边栏叠加依赖官方 workspace 浏览器的 DOM 约定（`role="tree"`、每个工作区一个节、
   行是 `role="treeitem"`、文件夹行在 `dragstart` 写入 `text/plain` 拖动负载）。它不改动
   不属于自己的节点、不干预拖拽状态，因此官方排序照常工作。
-- 已在 DSH `0.1.2-rc.1`（dsh-desktop 0.8.2 的 web profile）上验证。
+- 已在 DSH `0.1.2-rc.1`（dsh-desktop 0.8.2）与 `0.1.7`（较新的 dsh-desktop）的 web
+  profile 上验证。DSH 升级若改动官方侧边栏结构，插件会**静默失效**——所以它挂载 4 秒后
+  会自检一次：找不到工作区列表就在控制台打印明确警告（提示选择器需要更新），而不是装作
+  一切正常。
 
 ## 已知限制
 
@@ -92,7 +95,31 @@ window.__dshWgOn()          // 重新启用
   只存在于本客户端界面。
 - 不改工作区标题，只做归类。
 
-## 排障：安全模式 / 重复挂载
+## 排障 A：DSH Desktop 升级后插件消失
+
+桌面端升级会**重排自己的插件目录**（例如从 `harness\plugins\` 换到
+`%APPDATA%\dsh-desktop\plugins\`）。后果有两个，都不会报错、插件只是不见了：
+
+1. profile 里 `node_modules\dsh-workspace-groups` 变成**悬空联接**（指向已不存在的目录）；
+2. `dsh.profile.bundles` 里的 `dsh-workspace-groups` 被**剔除**（升级时因为安装损坏而被清掉）。
+
+一条命令修好（会自动重建联接、补回 bundle 登记）：
+
+```powershell
+& "C:\Users\ZhangShen\Documents\DSH\dsh-workspace-groups\scripts\link-dev.ps1"
+```
+
+然后用自检确认（它会同时检查"联接是否可解析"和"bundle 是否登记"）：
+
+```sh
+node scripts/check-profile-mount.mjs --profile web
+```
+
+重启 DSH：分组应当回来。若分组没回来但控制台出现
+`已挂载，但在侧边栏里没找到工作区列表`，那是官方侧边栏 DOM 变了，需要按新结构更新
+选择器——把 `window.__dshWgDiagnose()` 的输出发出来即可定位。
+
+## 排障 B：安全模式 / 重复挂载
 
 报错形如 `duplicate loader entry id: workspace-groups` 并进入安全模式，说明同一个
 loader id 被挂载了两次：本插件自带 `dsh.bundle.patch`，只要 profile 的

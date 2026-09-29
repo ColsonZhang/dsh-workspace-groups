@@ -5,3 +5,10 @@
 *.json text eol=lf
 *.yml text eol=lf
 *.md text eol=lf
+
+# Windows PowerShell 5.1 decodes a BOM-less .ps1 as ANSI, which turns the Chinese
+# text in these scripts into parser errors ("missing closing '}'"). The BOM is
+# therefore committed as part of the blob (`text`/`eol` only, no
+# `working-tree-encoding`: that attribute makes git re-encode on the way in and
+# fails with "failed to encode … from UTF-8-BOM to UTF-8").
+*.ps1 text eol=crlf

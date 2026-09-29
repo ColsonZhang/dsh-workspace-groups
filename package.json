@@ -1,6 +1,6 @@
 {
   "name": "dsh-workspace-groups",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Collapsible workspace groups for the DSH sidebar: fold related workspaces into named groups, drag workspaces between them, grouping stored in the browser.",
   "keywords": [
     "dsh",
@@ -25,7 +25,13 @@
     "README.md",
     "README.zh.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "scripts/_lib.mjs",
+    "scripts/verify-package.mjs",
+    "scripts/check-profile-mount.mjs",
+    "scripts/client.sha256",
+    "scripts/install.ps1",
+    "scripts/link-dev.ps1"
   ],
   "engines": {
     "node": ">=20"

@@ -1365,14 +1365,31 @@ window.__ModuleLoader__.load({
           return 'dsh-workspace-groups: 已重新启用'
         }
         window.__dshWgOff = false
+        const mountedContainers = treeContainers().length
         diag('mounted', {
-          containers: treeContainers().length,
+          containers: mountedContainers,
           workspaces: workspaceItems().map((item) => item.workspaceId),
           stored: window.localStorage.getItem(STORAGE_KEY),
         })
         console.info(
-          `[${NS}] 已启用；诊断 window.__dshWgDiagnose()；停用 window.__dshWgOff = true；重新启用 window.__dshWgOn()`,
+          `[${NS}] 已启用（识别到 ${mountedContainers} 个工作区列表）；诊断 window.__dshWgDiagnose()；停用 window.__dshWgOff = true；重新启用 window.__dshWgOn()`,
         )
+        if (mountedContainers === 0) {
+          // The sidebar may not be rendered yet, or the official workspace
+          // browser changed its DOM contract (a DSH upgrade can do that). Without
+          // this line the plugin looks "installed but dead".
+          setTimeout(() => {
+            const late = treeContainers().length
+            diag('container-probe', { containers: late })
+            if (late === 0) {
+              console.warn(
+                `[${NS}] 已挂载，但在侧边栏里没找到工作区列表（[role="tree"] 里没有工作区节）。` +
+                  '这通常表示 DSH 升级后官方 workspace 浏览器的 DOM 结构变了，需要更新本插件的选择器。' +
+                  '请把 window.__dshWgDiagnose() 的输出发给插件作者。',
+              )
+            }
+          }, 4000)
+        }
         return () => {
           observer.disconnect()
           unsubscribe?.()

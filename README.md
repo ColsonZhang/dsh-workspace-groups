@@ -97,7 +97,11 @@ installation problem, not a DOM problem.
   `text/plain` drag payload the folder row writes). It never mutates nodes it
   does not own and never changes drag state, so official reordering keeps
   working.
-- Verified against DSH `0.1.2-rc.1` (dsh-desktop 0.8.2 web profile).
+- Verified against DSH `0.1.2-rc.1` (dsh-desktop 0.8.2) and `0.1.7` (a later
+  dsh-desktop) web profiles. If a DSH upgrade changes the official sidebar
+  structure the plugin goes quiet, so it re-checks itself 4 seconds after mounting
+  and prints an explicit console warning when it cannot find the workspace list —
+  instead of pretending everything is fine.
 
 ## Known limitations
 
@@ -108,7 +112,34 @@ installation problem, not a DOM problem.
   appear in the Host registry, in exports, or in any API — only in this client.
 - Workspace titles are shown as they are; the plugin does not rename them.
 
-## Troubleshooting: safe mode / duplicated mount
+## Troubleshooting A: the plugin vanished after a DSH Desktop upgrade
+
+A desktop upgrade rearranges its own plugin directory (for example from
+`harness\plugins\` to `%APPDATA%\dsh-desktop\plugins\`). Two silent consequences:
+
+1. `node_modules\dsh-workspace-groups` inside the profile becomes a **dangling
+   junction** pointing at a directory that no longer exists;
+2. `dsh-workspace-groups` is **dropped from `dsh.profile.bundles`** (the upgrade
+   prunes it because the install looked broken).
+
+One command repairs both — it recreates the junction and puts the bundle entry back:
+
+```powershell
+& "C:\Users\ZhangShen\Documents\DSH\dsh-workspace-groups\scripts\link-dev.ps1"
+```
+
+Then confirm with the pre-flight check, which verifies both the install resolution
+and the bundle registration:
+
+```sh
+node scripts/check-profile-mount.mjs --profile web
+```
+
+Restart DSH and the groups come back. If they do not, but the console shows
+`已挂载，但在侧边栏里没找到工作区列表`, the official sidebar DOM changed and the
+selectors need updating — `window.__dshWgDiagnose()` says exactly what is missing.
+
+## Troubleshooting B: safe mode / duplicated mount
 
 If DSH Desktop reports `duplicate loader entry id: workspace-groups` and drops into
 safe mode, one loader id is being mounted twice: this package declares

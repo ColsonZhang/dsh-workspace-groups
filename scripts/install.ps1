@@ -1,4 +1,4 @@
-# 安装 dsh-workspace-groups 到指定 DSH profile。
+﻿# 安装 dsh-workspace-groups 到指定 DSH profile。
 #
 #   .\scripts\install.ps1                 # 默认 web profile，从本仓库所在目录安装
 #   .\scripts\install.ps1 -Profile web    # 指定 profile
