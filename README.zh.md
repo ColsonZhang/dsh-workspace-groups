@@ -12,19 +12,22 @@
 也不碰 Host 侧注册表：工作区、会话及其存储的行为完全不变。
 
 ## 安装
+官方 **DeepSeek Harness** 桌面端（profile 为 `desktop`），从本地目录安装：
 
 ```sh
-dsh plugin --profile web add dsh-workspace-groups
+dsh plugin --profile desktop add /absolute/path/to/dsh-workspace-groups
 ```
 
-装完要**重启** `dsh web`（或桌面端）：客户端包只在启动时进入 `__DSH_BOOT__` 模块图，
-只刷新页面不会加载它。
-
-从本地目录安装：
+社区版 DSH Desktop 的 profile 名是 `web`：
 
 ```sh
 dsh plugin --profile web add /absolute/path/to/dsh-workspace-groups
 ```
+
+装完要**重启** DSH：客户端包只在启动时进入 `__DSH_BOOT__` 模块图，只刷新页面不会加载它。
+
+`scripts/install.ps1` 做同样的事，并自动识别 profile（`$DSH_PROFILE`，否则取存在的
+`desktop` / `web` / `tui`）。
 
 ## 你会得到
 
@@ -80,12 +83,29 @@ window.__dshWgOn()          // 重新启用
 
 - 纯客户端插件：Host 半是空的 `apply()`，不在 Host 侧注册任何东西。
 - 侧边栏叠加依赖官方 workspace 浏览器的 DOM 约定（`role="tree"`、每个工作区一个节、
-  行是 `role="treeitem"`、文件夹行在 `dragstart` 写入 `text/plain` 拖动负载）。它不改动
-  不属于自己的节点、不干预拖拽状态，因此官方排序照常工作。
-- 已在 DSH `0.1.2-rc.1`（dsh-desktop 0.8.2）与 `0.1.7`（较新的 dsh-desktop）的 web
-  profile 上验证。DSH 升级若改动官方侧边栏结构，插件会**静默失效**——所以它挂载 4 秒后
-  会自检一次：找不到工作区列表就在控制台打印明确警告（提示选择器需要更新），而不是装作
-  一切正常。
+  工作区文件夹行带 `projectRow`/`projectText` 类、行是 `role="treeitem"`、文件夹行在
+  `dragstart` 写入 `text/plain` 拖动负载）。它不改动不属于自己的节点、不干预拖拽状态，
+  因此官方排序照常工作。
+- 已在 DSH `0.2.0-rc.2`（官方 DeepSeek Harness 桌面端，profile `desktop`）实测通过；社区版
+  的 `0.1.2-rc.1`（dsh-desktop 0.8.2）与 `0.1.7` web profile 也仍然支持。
+- 对 `@deepseek-ai/dsh-*` 的 peer 依赖写成 `>=`（社区插件通行写法）：dsh CLI 会用运行时版本
+  校验插件的 peer 范围，用 `^0.1.x` 这类写法会被官方 0.2 直接拒绝安装（见排障 C）。
+- DSH 升级若改动官方侧边栏结构，插件会**静默失效**——所以它挂载 4 秒后会自检一次：
+  找不到工作区列表就在控制台说明原因（是当前视图本来就不支持分组，还是官方 DOM 变了），
+  而不是装作一切正常。
+
+### 哪些侧边栏视图会被装饰
+
+0.2 的侧边栏在同一个「会话」标题下有三种视图，只有默认的平铺「工作区」视图会被装饰：
+
+| 视图（视图选项菜单） | 行为 |
+| --- | --- |
+| 工作区（默认） | 正常插入、折叠、拖拽排序分组。 |
+| 一个列表（扁平会话） | 完全不碰：那里是会话行而不是工作区，插分组标题没有意义；控制台会说明一次。 |
+| 工作区树（层级） | 完全不碰（含管理栏）：子工作区嵌在父工作区节内部，平铺分组会移动非兄弟节点；控制台会说明一次。 |
+| 搜索结果 | 完全不碰（只有会话行）。 |
+
+切回「工作区」视图后分组立即恢复。
 
 ## 已知限制
 
@@ -94,6 +114,7 @@ window.__dshWgOn()          // 重新启用
 - 分组标题不是官方工作区列表的一部分，因此不会出现在 Host 注册表、导出或任何 API 里，
   只存在于本客户端界面。
 - 不改工作区标题，只做归类。
+- 只对平铺的「工作区」视图生效；层级「工作区树」视图按设计不做装饰。
 
 ## 排障 A：DSH Desktop 升级后插件消失
 
@@ -106,13 +127,16 @@ window.__dshWgOn()          // 重新启用
 一条命令修好（会自动重建联接、补回 bundle 登记）：
 
 ```powershell
-& "C:\Users\ZhangShen\Documents\DSH\dsh-workspace-groups\scripts\link-dev.ps1"
+& "<仓库>\scripts\link-dev.ps1"
 ```
+
+官方桌面端会自动识别 profile 与 DSH_HOME，也可以显式指定：
+`-Profile desktop -DshHome "$env:USERPROFILE\.dsh"`。
 
 然后用自检确认（它会同时检查"联接是否可解析"和"bundle 是否登记"）：
 
 ```sh
-node scripts/check-profile-mount.mjs --profile web
+node scripts/check-profile-mount.mjs --profile desktop
 ```
 
 重启 DSH：分组应当回来。若分组没回来但控制台出现
@@ -152,10 +176,21 @@ for (const options of config) {
 重启前先自检（它按上面两条规则判定，并把"已停用但同 id"也标为问题）：
 
 ```sh
-node scripts/check-profile-mount.mjs --profile web
+node scripts/check-profile-mount.mjs --profile desktop
 ```
 
-看到 `RESULT: OK` 再启动。
+看到 `RESULT: OK` 再启动。profile 默认取 `$DSH_PROFILE`，否则取存在的
+`desktop` / `web` / `tui`。
+
+## 排障 C：`installation rejected: ... is incompatible with dsh X`
+
+`dsh plugin add` 会把运行时的 dsh 版本与插件的 `@deepseek-ai/dsh-*`
+`peerDependencies` 做匹配，范围不满足就直接拒绝安装（要绕过必须
+`dsh plugin allow-version … --accept-risk` 逐版本豁免）。
+
+本插件声明的是 `>=0.1.2-rc.1`（覆盖所有 `0.1.x` / `0.2.x` 运行时），所以看到这条报错说明
+装的还是 0.1.2 及更早的副本——更新仓库后重新安装即可。人工实测过的版本记在
+`package.json` 的 `dsh.compatibility.dshReleases` 里。
 
 ## 开发
 
@@ -163,9 +198,9 @@ node scripts/check-profile-mount.mjs --profile web
 node --check client.js   # 客户端包是纯 JS，经 window.__ModuleLoader__ 加载
 ```
 
-`client.js` 是全部浏览器端逻辑（注册在 `slots` / `workspaces` 面上并装饰侧边栏），
+`client.js` 是全部浏览器端逻辑（订阅客户端的 `workspaces` 服务并装饰侧边栏 DOM），
 `index.js` 是空的 Host 半。本地目录可以靠 profile 的 `node_modules/<name>` 指向本仓库来
-挂载，但推荐走 `dsh plugin --profile web add <path>`。
+挂载，但推荐走 `dsh plugin --profile desktop add <path>`。
 
 ## 许可
 

@@ -3,6 +3,49 @@
 本文件记录本插件（`dsh-workspace-groups`）的对外变更。
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循语义化版本。
 
+## [0.1.3] — 2026-10-03
+
+适配官方 **DeepSeek Harness** 桌面端（dsh `0.2.0-rc.2`，应用 `@deepseek-ai/dsh-desktop`
+0.2.0-rc.2）。已在该版本上用 profile `desktop` 实测：安装通过、客户端挂载、分组标题与
+管理栏正常渲染。社区版 `0.1.2-rc.1` / `0.1.7-rc.2` 仍然支持。
+
+### Fixed
+
+- **官方 dsh 拒绝安装（致命的兼容性阻断）**。dsh CLI 会用运行时的 dsh 版本去匹配插件的
+  `peerDependencies`：原来的 `^0.1.2-rc.1` 不满足运行时 `0.2.0-rc.2`，安装直接失败
+  （`installation rejected: Plugin dsh-workspace-groups@0.1.2 is incompatible with dsh 0.2.0-rc.2`），
+  必须先 `allow-version` 豁免才能装上。现在两个 `@deepseek-ai/dsh-*` peer 改为
+  `>=0.1.2-rc.1`（`dsh-context` 等社区插件同样写法），官方 CLI 无需豁免即可安装。
+- **0.2 侧边栏的三种视图被误装饰**。0.2 的侧边栏除了分组工作区列表，还会渲染
+  「一个列表」（扁平会话列表）与搜索结果——它们同样是 `[role="tree"]` 且子节点同样带
+  `treeitem`，旧版结构判定把扁平列表整段当成了一个工作区节，插入了一个错误的「未分组」
+  标题并对其排序/折叠。现在只有"含工作区文件夹行（`projectRow`/`projectText`）"的树才被
+  认作工作区列表。
+- **层级「工作区树」视图**：该视图把子工作区嵌在父工作区节内部。此时顶层节数少于已注册
+  工作区数，插件会整体跳过装饰（含管理栏），而不是把非兄弟节点当成同级分组移动/隐藏。
+- 修复 `window.__dshWgOff = true` 后再执行 `window.__dshWgOn()` 管理栏不会恢复的问题。
+
+### Changed
+
+- `dsh.client.inject` 改为 `@deepseek-ai/dsh-api-workspace-controller` +
+  `@deepseek-ai/dsh-client-ui-sidebar`（原来的 `@deepseek-ai/dsh-client-ui-slots` 在 0.1/0.2 中
+  都是启动表里的静态模块，不是加载器条目，列在 `inject` 里没有意义）。
+- 新增 `dsh.compatibility.dshReleases`，记录已实测的 dsh 版本（社区插件惯例，供插件市场展示）。
+- 找不到工作区列表时的提示区分两种情况：当前视图本就不支持分组（信息级，说明切回
+  「工作区」视图即可）与官方 DOM 结构真的变了（警告级）。
+- `scripts/_lib.mjs` 同时支持两种安装布局：官方 DeepSeek Harness（`%LOCALAPPDATA%\Programs\
+  DeepSeek Harness`，DSH_HOME 默认 `~/.dsh`）与社区 DSH Desktop（`%APPDATA%\dsh-desktop\harness`）。
+  `install.ps1` / `link-dev.ps1` / `check-profile-mount.mjs` 会自动识别 `DSH_HOME` 与 profile
+  （`$DSH_PROFILE`，否则 `desktop` / `web` / `tui` 中第一个存在的）。
+- `check-profile-mount.mjs` 在取不到内置 YAML 解析器时退化为文本扫描，不再直接抛错。
+
+### Notes
+
+- 官方桌面端的 profile 名是 `desktop`（社区版是 `web`）：
+  `dsh plugin --profile desktop add <仓库绝对路径>`。
+- 已实测的三种侧边栏视图行为：「工作区」（默认）正常分组；「一个列表」与「工作区树」
+  完整保留官方 DOM，不做任何装饰。
+
 ## [0.1.2] — 2026-09-29
 
 已在 DSH `0.1.7`（较新的 dsh-desktop）web profile 上验证；本版主题是"DSH 升级后不再失效"。

@@ -1,15 +1,38 @@
 ﻿# 开发模式装配：不改 dsh 安装目录，把本仓库联接到 profile 的 node_modules，
-# 并在 profile 的 cordis.patch.yml 里插入挂载行。用于没有 dsh CLI 的桌面端。
+# 并在 profile 的 cordis.patch.yml 里插入挂载行。用于没有 dsh CLI 的环境。
 #
 #   .\scripts\link-dev.ps1
-#   .\scripts\link-dev.ps1 -Profile web -DshHome "$env:APPDATA\dsh-desktop\harness"
+#   .\scripts\link-dev.ps1 -Profile desktop -DshHome "$env:USERPROFILE\.dsh"
+#
+# 默认值：DSH_HOME = $env:DSH_HOME，否则 ~/.dsh（官方），否则
+# %APPDATA%\dsh-desktop\harness（社区）；Profile = $env:DSH_PROFILE，否则
+# desktop / web / tui 中第一个存在的。
 
 param(
-  [string]$Profile = 'web',
-  [string]$DshHome = "$env:APPDATA\dsh-desktop\harness"
+  [string]$Profile = '',
+  [string]$DshHome = ''
 )
 
 $ErrorActionPreference = 'Stop'
+
+function Get-DefaultDshHome {
+  if ($env:DSH_HOME) { return $env:DSH_HOME }
+  $official = Join-Path $env:USERPROFILE '.dsh'
+  if (Test-Path $official) { return $official }
+  return (Join-Path $env:APPDATA 'dsh-desktop\harness')
+}
+
+function Get-DefaultProfile([string]$Home) {
+  if ($env:DSH_PROFILE) { return $env:DSH_PROFILE }
+  foreach ($name in @('desktop', 'web', 'tui')) {
+    if (Test-Path (Join-Path $Home "profiles\$name\package.json")) { return $name }
+  }
+  return 'web'
+}
+
+if (-not $DshHome) { $DshHome = Get-DefaultDshHome }
+if (-not $Profile) { $Profile = Get-DefaultProfile $DshHome }
+
 $repo = Split-Path -Parent $PSScriptRoot
 $profileDir = Join-Path $DshHome "profiles\$Profile"
 $patchPath = Join-Path $profileDir 'cordis.patch.yml'
@@ -45,11 +68,11 @@ $pkgPath = Join-Path $profileDir 'package.json'
 $pkg = Get-Content $pkgPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $changed = $false
 if (-not $pkg.dependencies.'dsh-workspace-groups') {
-  # 依赖 spec 用本机默认布局（插件仓库位于 harness 的 ../../../plugins 下）。
-  # 仓库挪到别处时这个 spec 会指向旧位置，但 node_modules 联接已指向真实仓库，
-  # 而 loader 正是从联接解析包的，所以插件照常工作；换机器请改用
-  # `dsh plugin --profile web add <仓库绝对路径>`。
-  $pkg.dependencies | Add-Member -NotePropertyName 'dsh-workspace-groups' -NotePropertyValue 'link:../../../plugins/dsh-workspace-groups' -Force
+  # link: 用本仓库的绝对路径；node_modules 联接也已指向真实仓库，
+  # 而 loader 正是从联接解析包的，所以插件照常工作。
+  # 换机器请改用：dsh plugin --profile <profile> add <仓库绝对路径>
+  $linkSpec = 'link:' + ($repo -replace '\\', '/')
+  $pkg.dependencies | Add-Member -NotePropertyName 'dsh-workspace-groups' -NotePropertyValue $linkSpec -Force
   $changed = $true
 }
 if ($pkg.dsh.profile.bundles -notcontains 'dsh-workspace-groups') {

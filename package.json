@@ -1,6 +1,6 @@
 {
   "name": "dsh-workspace-groups",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Collapsible workspace groups for the DSH sidebar: fold related workspaces into named groups, drag workspaces between them, grouping stored in the browser.",
   "keywords": [
     "dsh",
@@ -42,16 +42,23 @@
     },
     "client": {
       "inject": [
-        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-api-workspace-controller",
         "@deepseek-ai/dsh-client-ui-sidebar"
       ],
       "platform": "web"
+    },
+    "compatibility": {
+      "dshReleases": {
+        "0.1.2-rc.1": "compatible",
+        "0.1.7-rc.2": "compatible",
+        "0.2.0-rc.2": "compatible"
+      }
     }
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-client-ui-sidebar": "^0.1.2-rc.1",
-    "@deepseek-ai/dsh-client-ui-slots": "^0.1.2-rc.1"
+    "@deepseek-ai/dsh-client-ui-sidebar": ">=0.1.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-slots": ">=0.1.2-rc.1"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/dsh-client-ui-sidebar": {
@@ -64,7 +71,7 @@
   "scripts": {
     "check": "node --check index.js && node --check client.js",
     "verify": "node scripts/verify-package.mjs",
-    "verify:mount": "node scripts/check-profile-mount.mjs --profile web",
+    "verify:mount": "node scripts/check-profile-mount.mjs",
     "baseline": "node scripts/verify-package.mjs --write-baseline"
   },
   "repository": {

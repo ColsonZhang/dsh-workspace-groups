@@ -8,16 +8,20 @@
  *
  *   <div role="tree">                        ← the workspace list, flat block flow
  *     <div ...>                              ← ONE WORKSPACE SECTION (groupSection)
- *       <div role="treeitem" draggable>      ← the folder row; drag payload text/plain = row.key
+ *       [wrapper span]                       ← 0.2 wraps rows; 0.1 does not
+ *         <div role="treeitem" draggable>    ← folder row; drag payload text/plain = row.key
  *       <div role="treeitem">…</div>         ← session rows (only when expanded)
  *     </div>
  *     <div ...>                              ← next workspace section
  *   </div>
  *
  * A workspace section is therefore exactly "a direct child of the tree that
- * wraps a direct-child `treeitem`". Session rows are themselves direct children
- * carrying the `treeitem` role, which is what tells the two apart. This module
- * never mutates anything during a drag and never touches nodes it does not own.
+ * wraps a `treeitem` produced by the official *workspace folder row*". Session
+ * rows are themselves `treeitem`s, so the row kind — not the role — is what
+ * tells the two apart: DSH 0.2 renders three different `role="tree"` surfaces
+ * (the grouped workspace list, the flat "one list" body, and search results),
+ * and only the first one has folder rows. This module never mutates anything
+ * during a drag and never touches nodes it does not own.
  *
  * ## What it changes
  *
@@ -26,6 +30,15 @@
  *   - sets `order` on sections and gives the tree `display:flex; flex-direction:
  *     column`, so groups lay out in the configured order without moving nodes;
  *   - hides collapsed sections with `display:none`.
+ *
+ * ## Views it refuses to decorate
+ *
+ * Flat ("one list") and search surfaces have no workspace folder rows, and the
+ * hierarchical "workspace tree" view nests a child workspace *inside* its
+ * parent's section, where regrouping would move and hide non-sibling rows. Both
+ * are left completely untouched, toolbar included; the console says so once per
+ * container. Grouping appears again when the sidebar is back on the flat
+ * "workspace" view.
  *
  * ## Grouping state
  *
@@ -271,11 +284,21 @@ window.__ModuleLoader__.load({
        * the section to NOT carry a `treeitem` role, which silently matched zero
        * sections whenever the official wrapper happens to expose that role — and
        * zero sections means no grouping at all.
+       *
+       * The folder-row test is what separates this list from the *other*
+       * `role="tree"` surfaces a 0.2 sidebar renders: the flat "one list" body
+       * (a session row per tree child) and the search-results tree. Both wrap a
+       * `treeitem` too, so without the row-kind test they look exactly like
+       * workspace sections and get a bogus group header. A workspace folder row
+       * carries the official `projectRow`/`projectText` class pair; a session row
+       * carries `sessionRow`. Those substrings are already the plugin's label
+       * hook, so this adds no new coupling.
        */
       function looksLikeSection(node, tree) {
         if (node.getAttribute?.(ATTR) === 'header' || node.getAttribute?.(ATTR) === 'divider') return false
         if (node.parentElement !== tree) return false
-        return node.querySelector?.('[role="treeitem"]') !== null
+        if (node.querySelector?.('[role="treeitem"]') === null) return false
+        return node.querySelector?.('[class*="projectRow"], [class*="projectText"]') !== null
       }
 
       /** Sections of a tree, honouring this plugin's own marker and its children's. */
@@ -388,12 +411,73 @@ window.__ModuleLoader__.load({
         }
       }
 
+      /** Containers already reported as undecoratable, so the observer logs each once. */
+      const reportedUnsupported = new WeakSet()
+
+      /**
+       * Report a tree this plugin deliberately refuses to decorate — once per
+       * container, because a MutationObserver calls `sync()` on every DOM change.
+       */
+      function noteUnsupported(container, found, registered) {
+        if (reportedUnsupported.has(container)) return
+        reportedUnsupported.add(container)
+        diag('unsupported-view', { found, registered, label: container.getAttribute?.('aria-label') ?? null })
+        if (registered > 0 && found < registered) {
+          console.info(
+            `[${NS}] 侧边栏当前是「工作区树」层级视图（只看到 ${found} 个顶层工作区，共 ${registered} 个）：` +
+              '分组显示只支持平铺的「工作区」视图，已跳过装饰。切回「工作区」视图即可恢复。',
+          )
+        } else {
+          console.info(
+            `[${NS}] 这个 [role="tree"] 不是工作区列表（没有工作区文件夹行），已跳过装饰：${
+              container.getAttribute?.('aria-label') ?? '(no label)'
+            }`,
+          )
+        }
+      }
+
+      /** Drop this plugin's toolbar above a container it can no longer decorate. */
+      function removeBar(container) {
+        const body = container.parentElement
+        if (body === null) return
+        for (const child of [...body.children]) {
+          if (child.getAttribute?.(ATTR) === 'bar') child.remove()
+        }
+        barBodies.delete(body)
+      }
+
+      /**
+       * The sections of a tree this plugin is willing to decorate, or null.
+       *
+       * The grouped list renders exactly one section per registered workspace
+       * (plus the trailing ungrouped bucket). Fewer sections than registered
+       * workspaces means the sidebar is showing its hierarchical "workspace
+       * tree" view, where a nested workspace lives *inside* its parent's
+       * section: regrouping those rows would move and hide nodes that are not
+       * siblings. Zero sections means some other surface (the flat session
+       * list, search results) or no list yet. Both are left entirely alone.
+       *
+       * `sync` and `ensureBar` must agree on this test: a toolbar that the
+       * decorator then refuses would be added and removed in turn, spinning the
+       * MutationObserver forever.
+       */
+      function decoratable(container) {
+        const sections = sectionsOf(container)
+        if (sections.length === 0) return null
+        const registered = workspaceItems()
+        if (registered.length > 0 && sections.length < registered.length) return null
+        return sections
+      }
+
       /** Immediate, reversible-stop: drop every decoration and stop syncing. */
       function undecorate() {
         disabled = true
         window.__dshWgOff = true
         for (const container of document.querySelectorAll(`[${ATTR}="tree"]`)) clearAdded(container)
         for (const node of document.querySelectorAll(`[${ATTR}="bar"]`)) node.remove()
+        // The bars are gone, so the "already has one" bookkeeping must go with
+        // them: otherwise `window.__dshWgOn()` could never bring the bar back.
+        barBodies = new WeakSet()
         diag('disabled', {})
       }
 
@@ -418,11 +502,14 @@ window.__ModuleLoader__.load({
         try {
           refreshLabels()
           for (const container of treeContainers()) {
-            const sections = sectionsOf(container)
-            if (sections.length === 0) {
+            const sections = decoratable(container)
+            if (sections === null) {
               clearAdded(container)
+              removeBar(container)
+              noteUnsupported(container, sectionsOf(container).length, workspaceItems().length)
               continue
             }
+            reportedUnsupported.delete(container)
             const signature = JSON.stringify([
               sections.map((_section, index) => {
                 const item = workspaceItems()[index]
@@ -1239,11 +1326,19 @@ window.__ModuleLoader__.load({
         { label: '停用分组显示（本次会话）', tone: 'danger', run: () => undecorate() },
       ]
 
-      const barBodies = new WeakSet()
+      /** Bodies already carrying this plugin's toolbar; reset when that bar is dropped. */
+      let barBodies = new WeakSet()
 
       function ensureBar() {
         if (disabled || window.__dshWgOff === true) return
         for (const container of treeContainers()) {
+          // Never offer the toolbar above a tree the decorator refuses: the bar
+          // would be added here and removed by `sync`, and that pair of DOM
+          // mutations would keep the MutationObserver busy forever.
+          if (decoratable(container) === null) {
+            removeBar(container)
+            continue
+          }
           const body = container.parentElement
           if (body === null || barBodies.has(body)) continue
           if ([...body.children].some((child) => child.getAttribute?.(ATTR) === 'bar')) {
@@ -1375,19 +1470,30 @@ window.__ModuleLoader__.load({
           `[${NS}] 已启用（识别到 ${mountedContainers} 个工作区列表）；诊断 window.__dshWgDiagnose()；停用 window.__dshWgOff = true；重新启用 window.__dshWgOn()`,
         )
         if (mountedContainers === 0) {
-          // The sidebar may not be rendered yet, or the official workspace
-          // browser changed its DOM contract (a DSH upgrade can do that). Without
-          // this line the plugin looks "installed but dead".
+          // The sidebar may not be rendered yet, the user may simply be on a view
+          // this plugin does not decorate, or the official workspace browser
+          // changed its DOM contract (a DSH upgrade can do that). Without this
+          // line the plugin looks "installed but dead".
           setTimeout(() => {
             const late = treeContainers().length
             diag('container-probe', { containers: late })
-            if (late === 0) {
-              console.warn(
-                `[${NS}] 已挂载，但在侧边栏里没找到工作区列表（[role="tree"] 里没有工作区节）。` +
-                  '这通常表示 DSH 升级后官方 workspace 浏览器的 DOM 结构变了，需要更新本插件的选择器。' +
-                  '请把 window.__dshWgDiagnose() 的输出发给插件作者。',
+            if (late !== 0) return
+            const trees = [...document.querySelectorAll('[role="tree"]')]
+            const folderRows = trees.some(
+              (tree) => tree.querySelector?.('[class*="projectRow"], [class*="projectText"]') !== null,
+            )
+            if (trees.length > 0 && !folderRows) {
+              console.info(
+                `[${NS}] 侧边栏当前不是平铺的「工作区」视图（没有工作区文件夹行），分组显示已跳过；` +
+                  '切回「工作区」视图即可看到分组。',
               )
+              return
             }
+            console.warn(
+              `[${NS}] 已挂载，但在侧边栏里没找到工作区列表（[role="tree"] 里没有工作区节）。` +
+                '这通常表示 DSH 升级后官方 workspace 浏览器的 DOM 结构变了，需要更新本插件的选择器。' +
+                '请把 window.__dshWgDiagnose() 的输出发给插件作者。',
+            )
           }, 4000)
         }
         return () => {

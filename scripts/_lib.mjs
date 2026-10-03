@@ -2,45 +2,92 @@
 //
 // Everything here has to survive a DSH Desktop update, which may move the app
 // between `resources/app` and `resources/app.asar.unpacked`, or relocate the
-// harness's own plugin directory, without warning.
+// harness's own plugin directory, without warning. Two installations are
+// supported out of the box:
+//
+//   * the community DSH Desktop app (`%LOCALAPPDATA%\Programs\DSH Desktop`),
+//     whose harness home defaults to `%APPDATA%\dsh-desktop\harness`;
+//   * the official DeepSeek Harness app (`%LOCALAPPDATA%\Programs\DeepSeek
+//     Harness`), whose harness home defaults to `%USERPROFILE%\.dsh` and whose
+//     runtime lives in `resources/app.asar.unpacked/dsh` plus
+//     `$DSH_HOME\dsh-runtimes`.
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-/** Candidate roots of the installed DSH Desktop app, newest layout first. */
+const LOCAL = process.env.LOCALAPPDATA ?? ''
+const APPDATA = process.env.APPDATA ?? ''
+const USERPROFILE = process.env.USERPROFILE ?? ''
+
+/** Candidate roots of the installed app, both layouts, newest first. */
 export const APP_ROOTS = [
-  'C:/Users/ZhangShen/AppData/Local/Programs/DSH Desktop/resources/app.asar.unpacked',
-  'C:/Users/ZhangShen/AppData/Local/Programs/DSH Desktop/resources/app',
-]
+  join(LOCAL, 'Programs', 'DeepSeek Harness', 'resources', 'app.asar.unpacked', 'dsh'),
+  join(LOCAL, 'Programs', 'DeepSeek Harness', 'resources', 'runtime'),
+  join(LOCAL, 'Programs', 'DSH Desktop', 'resources', 'app.asar.unpacked'),
+  join(LOCAL, 'Programs', 'DSH Desktop', 'resources', 'app'),
+  join(APPDATA, 'dsh-desktop', 'harness', 'node_modules'),
+].filter((root) => root !== '' && existsSync(root))
 
 /** The first app root that actually exists. */
 export function resolveAppRoot() {
   const found = APP_ROOTS.find((root) => existsSync(root))
-  if (found === undefined) throw new Error(`no DSH Desktop app root found among:\n${APP_ROOTS.join('\n')}`)
+  if (found === undefined) {
+    throw new Error(`no DSH app root found among:\n${APP_ROOTS.join('\n')}`)
+  }
   return found
 }
 
-/** A node executable shipped with the app (falls back to PATH). */
+/** Harness home: `$DSH_HOME`, else the official `~\.dsh`, else the community default. */
+export function resolveDshHome() {
+  const explicit = process.env.DSH_HOME
+  if (explicit !== undefined && explicit !== '') return explicit
+  const official = join(USERPROFILE, '.dsh')
+  if (existsSync(official)) return official
+  return join(APPDATA, 'dsh-desktop', 'harness')
+}
+
+/**
+ * The profile to check when `--profile` is not given: `$DSH_PROFILE`, else
+ * whichever of the official `desktop` / community `web` profile exists.
+ */
+export function resolveDefaultProfile(dshHome = resolveDshHome()) {
+  const explicit = process.env.DSH_PROFILE
+  if (explicit !== undefined && explicit !== '') return explicit
+  for (const name of ['desktop', 'web', 'tui']) {
+    if (existsSync(join(dshHome, 'profiles', name, 'package.json'))) return name
+  }
+  return 'web'
+}
+
+/** A node executable shipped with the app or its managed runtime (falls back to PATH). */
 export function resolveNode() {
-  for (const root of APP_ROOTS) {
-    const candidate = join(root, 'node_modules/node/bin/node.exe')
+  const candidates = [
+    join(resolveDshHome(), 'dsh-runtimes', 'dsh-primary-runtime', 'dependencies', 'node', 'bin', 'node.exe'),
+    ...APP_ROOTS.map((root) => join(root, 'node_modules', 'node', 'bin', 'node.exe')),
+  ]
+  for (const candidate of candidates) {
     if (existsSync(candidate)) return candidate
   }
-  return 'node'
+  return process.execPath || 'node'
 }
 
-/** The YAML parser the Harness itself bundles. */
+/**
+ * The YAML parser the Harness itself bundles.
+ *
+ * The official app keeps `yaml` inside `app.asar`, where plain Node cannot read
+ * it, so the profile's hoisted `node_modules` is checked first.
+ */
 export async function loadYaml() {
-  for (const root of APP_ROOTS) {
-    const candidate = join(root, 'node_modules/yaml/dist/index.js')
+  const dshHome = resolveDshHome()
+  const candidates = [
+    join(dshHome, 'profiles', 'node_modules', 'yaml', 'dist', 'index.js'),
+    join(dshHome, 'profiles', resolveDefaultProfile(dshHome), 'node_modules', 'yaml', 'dist', 'index.js'),
+    ...APP_ROOTS.map((root) => join(root, 'node_modules', 'yaml', 'dist', 'index.js')),
+  ]
+  for (const candidate of candidates) {
     if (existsSync(candidate)) return import(pathToFileURL(candidate).href)
   }
-  throw new Error('no bundled YAML parser found in the DSH Desktop app roots')
-}
-
-/** `%APPDATA%\dsh-desktop\harness` unless DSH_HOME says otherwise. */
-export function resolveDshHome() {
-  return process.env.DSH_HOME ?? join(process.env.APPDATA ?? '', 'dsh-desktop', 'harness')
+  throw new Error('no bundled YAML parser found (checked the harness home and the app roots)')
 }
 
 /** Read the profile manifest, or throw with a useful message. */

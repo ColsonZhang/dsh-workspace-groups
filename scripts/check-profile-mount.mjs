@@ -10,21 +10,24 @@
 //     package from `dsh.profile.bundles`, after which the plugin silently
 //     disappears.
 //
-//   node scripts/check-profile-mount.mjs [--profile web]
+//   node scripts/check-profile-mount.mjs [--profile desktop]
+//
+// The profile defaults to $DSH_PROFILE, else whichever of `desktop` (official
+// app) and `web` (community app) exists under the resolved DSH home.
 import { existsSync, readFileSync } from 'node:fs'
-import { loadYaml, readProfile, resolveDshHome, resolveInstalled } from './_lib.mjs'
+import { loadYaml, readProfile, resolveDefaultProfile, resolveDshHome, resolveInstalled } from './_lib.mjs'
 
 const PACKAGE = 'dsh-workspace-groups'
 const ENTRY_ID = 'workspace-groups'
 
 const args = process.argv.slice(2)
 const profileIndex = args.indexOf('--profile')
-const profile = profileIndex === -1 ? 'web' : args[profileIndex + 1]
+const dshHome = resolveDshHome()
+const profile = profileIndex === -1 ? resolveDefaultProfile(dshHome) : args[profileIndex + 1]
 
 const problems = []
 const say = (message) => console.log(`  ${message}`)
 
-const dshHome = resolveDshHome()
 const { dir, patchPath, manifest } = readProfile(dshHome, profile)
 const bundles = manifest.dsh?.profile?.bundles ?? []
 const bundled = bundles.includes(PACKAGE)
@@ -38,16 +41,26 @@ say(
   }`,
 )
 
-const YAML = await loadYaml()
-const parsed = YAML.parse(readFileSync(patchPath, 'utf8')) ?? []
+const patchText = readFileSync(patchPath, 'utf8')
 
 /** Every entry id mounted by `insert` rows in the profile patch layer. */
 const insertRows = []
-for (const entry of parsed) {
-  if (Array.isArray(entry?.insert)) {
-    for (const row of entry.insert) {
-      if (row?.id !== undefined) insertRows.push({ id: row.id, disabled: row.disabled === true })
+try {
+  const YAML = await loadYaml()
+  const parsed = YAML.parse(patchText) ?? []
+  for (const entry of parsed) {
+    if (Array.isArray(entry?.insert)) {
+      for (const row of entry.insert) {
+        if (row?.id !== undefined) insertRows.push({ id: row.id, disabled: row.disabled === true })
+      }
     }
+  }
+} catch (error) {
+  // A machine without the harness's bundled YAML parser can still spot the one
+  // collision this check exists for, so scan the patch textually instead.
+  say(`YAML parser unavailable (${String(error.message).slice(0, 48)}…) — scanning the patch textually`)
+  for (const match of patchText.matchAll(/^\s*-\s*id:\s*['"]?([A-Za-z0-9._-]+)['"]?\s*$/gm)) {
+    insertRows.push({ id: match[1], disabled: /^\s*disabled:\s*true\s*$/m.test(patchText.slice(match.index, match.index + 400)) })
   }
 }
 say(`patch inserts        ${insertRows.map((row) => `${row.id}${row.disabled ? '(disabled)' : ''}`).join(', ') || '(none)'}`)
